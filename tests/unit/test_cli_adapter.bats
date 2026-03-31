@@ -141,6 +141,27 @@ YAML
 cli:
   default: kiro
 YAML
+
+    # ollama CLI settings
+    cat > "${TEST_TMP}/settings_ollama.yaml" << 'YAML'
+cli:
+  default: claude
+  agents:
+    ashigaru1:
+      type: ollama
+      model: qwen3.5
+    ashigaru2:
+      type: ollama
+      model: llama3.3
+    ashigaru3:
+      type: ollama
+YAML
+
+    # ollama default settings
+    cat > "${TEST_TMP}/settings_ollama_default.yaml" << 'YAML'
+cli:
+  default: ollama
+YAML
 }
 
 teardown() {
@@ -244,6 +265,24 @@ load_adapter_with() {
     [ "$result" = "kiro" ]
 }
 
+@test "get_cli_type: ollama設定 ashigaru1 → ollama" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(get_cli_type "ashigaru1")
+    [ "$result" = "ollama" ]
+}
+
+@test "get_cli_type: ollama設定 ashigaru3 → ollama (モデル指定なし)" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(get_cli_type "ashigaru3")
+    [ "$result" = "ollama" ]
+}
+
+@test "get_cli_type: ollamaデフォルト設定 → ollama" {
+    load_adapter_with "${TEST_TMP}/settings_ollama_default.yaml"
+    result=$(get_cli_type "ashigaru1")
+    [ "$result" = "ollama" ]
+}
+
 @test "get_cli_type: 未定義agent → default継承" {
     load_adapter_with "${TEST_TMP}/settings_codex_default.yaml"
     result=$(get_cli_type "ashigaru3")
@@ -340,6 +379,21 @@ load_adapter_with() {
     load_adapter_with "${TEST_TMP}/settings_kiro.yaml"
     result=$(build_cli_command "ashigaru5")
     [ "$result" = "kiro-cli chat --trust-all-tools --agent shogun-system" ]
+}
+
+@test "build_cli_command: ollama + model → ANTHROPIC env + claude --model qwen3.5" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(build_cli_command "ashigaru1")
+    [[ "$result" == *"ANTHROPIC_AUTH_TOKEN=ollama"* ]]
+    [[ "$result" == *"ANTHROPIC_BASE_URL=http://localhost:11434"* ]]
+    [[ "$result" == *"--model qwen3.5"* ]]
+    [[ "$result" == *"--dangerously-skip-permissions"* ]]
+}
+
+@test "build_cli_command: ollama + custom model → --model llama3.3" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(build_cli_command "ashigaru2")
+    [[ "$result" == *"--model llama3.3"* ]]
 }
 
 @test "build_cli_command: cliセクションなし → claude フォールバック" {
@@ -446,6 +500,10 @@ load_adapter_with() {
     [ "$(get_instruction_file shogun kiro)" = "instructions/generated/kiro-shogun.md" ]
     [ "$(get_instruction_file karo kiro)" = "instructions/generated/kiro-karo.md" ]
     [ "$(get_instruction_file ashigaru1 kiro)" = "instructions/generated/kiro-ashigaru.md" ]
+    # ollama (uses claude instructions — same CLI underneath)
+    [ "$(get_instruction_file shogun ollama)" = "instructions/shogun.md" ]
+    [ "$(get_instruction_file karo ollama)" = "instructions/karo.md" ]
+    [ "$(get_instruction_file ashigaru1 ollama)" = "instructions/ashigaru.md" ]
 }
 
 @test "get_instruction_file: 不明なagent_id → 空文字 + return 1" {
@@ -546,6 +604,23 @@ load_adapter_with() {
     [[ "$output" == *"Kiro CLI not found"* ]]
 }
 
+@test "validate_cli_availability: ollama mock (PATH操作)" {
+    load_adapter_with "${TEST_TMP}/settings_none.yaml"
+    mkdir -p "${TEST_TMP}/bin"
+    echo '#!/bin/bash' > "${TEST_TMP}/bin/ollama"
+    echo '#!/bin/bash' > "${TEST_TMP}/bin/claude"
+    chmod +x "${TEST_TMP}/bin/ollama" "${TEST_TMP}/bin/claude"
+    PATH="${TEST_TMP}/bin:$PATH" run validate_cli_availability "ollama"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_cli_availability: ollama未インストール → 1 + エラーメッセージ" {
+    load_adapter_with "${TEST_TMP}/settings_none.yaml"
+    PATH="/usr/bin:/bin" run validate_cli_availability "ollama"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Ollama not found"* ]]
+}
+
 # =============================================================================
 # get_agent_model テスト
 # =============================================================================
@@ -620,6 +695,30 @@ load_adapter_with() {
     load_adapter_with "${TEST_TMP}/settings_kimi_default.yaml"
     result=$(get_agent_model "karo")
     [ "$result" = "k2.5" ]
+}
+
+@test "get_agent_model: ollama CLI ashigaru1 → qwen3.5 (YAML指定)" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(get_agent_model "ashigaru1")
+    [ "$result" = "qwen3.5" ]
+}
+
+@test "get_agent_model: ollama CLI ashigaru2 → llama3.3 (YAML指定)" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(get_agent_model "ashigaru2")
+    [ "$result" = "llama3.3" ]
+}
+
+@test "get_agent_model: ollama CLI ashigaru3 → qwen3.5 (デフォルト)" {
+    load_adapter_with "${TEST_TMP}/settings_ollama.yaml"
+    result=$(get_agent_model "ashigaru3")
+    [ "$result" = "qwen3.5" ]
+}
+
+@test "get_agent_model: ollamaデフォルト shogun → qwen3.5" {
+    load_adapter_with "${TEST_TMP}/settings_ollama_default.yaml"
+    result=$(get_agent_model "shogun")
+    [ "$result" = "qwen3.5" ]
 }
 
 # =============================================================================
@@ -725,6 +824,48 @@ YAML
     load_adapter_with "${TEST_TMP}/settings_display.yaml"
     result=$(get_model_display_name "ashigaru6")
     [ "$result" = "Kimi" ]
+}
+
+@test "get_model_display_name: Ollama qwen3.5 → Qwen" {
+    cat > "${TEST_TMP}/settings_display.yaml" << 'YAML'
+cli:
+  default: ollama
+  agents:
+    ashigaru1:
+      type: ollama
+      model: qwen3.5
+YAML
+    load_adapter_with "${TEST_TMP}/settings_display.yaml"
+    result=$(get_model_display_name "ashigaru1")
+    [ "$result" = "Qwen" ]
+}
+
+@test "get_model_display_name: Ollama llama3.3 → Llama" {
+    cat > "${TEST_TMP}/settings_display.yaml" << 'YAML'
+cli:
+  default: ollama
+  agents:
+    ashigaru2:
+      type: ollama
+      model: llama3.3
+YAML
+    load_adapter_with "${TEST_TMP}/settings_display.yaml"
+    result=$(get_model_display_name "ashigaru2")
+    [ "$result" = "Llama" ]
+}
+
+@test "get_model_display_name: Ollama deepseek-r1 → DeepSeek" {
+    cat > "${TEST_TMP}/settings_display.yaml" << 'YAML'
+cli:
+  default: ollama
+  agents:
+    ashigaru3:
+      type: ollama
+      model: deepseek-r1:70b
+YAML
+    load_adapter_with "${TEST_TMP}/settings_display.yaml"
+    result=$(get_model_display_name "ashigaru3")
+    [ "$result" = "DeepSeek" ]
 }
 
 @test "get_model_display_name: 全モデル × thinking組み合わせ" {

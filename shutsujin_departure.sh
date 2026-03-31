@@ -121,6 +121,8 @@ KESSEN_MODE=false
 SHOGUN_NO_THINKING=false
 SILENT_MODE=false
 SHELL_OVERRIDE=""
+LOCAL_MODE=false
+LOCAL_MODEL=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -148,6 +150,16 @@ while [[ $# -gt 0 ]]; do
             SILENT_MODE=true
             shift
             ;;
+        -L|--local)
+            LOCAL_MODE=true
+            if [[ -n "$2" && "$2" != -* ]]; then
+                LOCAL_MODEL="$2"
+                shift 2
+            else
+                LOCAL_MODEL="qwen3.5"
+                shift
+            fi
+            ;;
         -shell|--shell)
             if [[ -n "$2" && "$2" != -* ]]; then
                 SHELL_OVERRIDE="$2"
@@ -174,6 +186,8 @@ while [[ $# -gt 0 ]]; do
             echo "                      未指定時は config/settings.yaml の設定を使用"
             echo "  -S, --silent        サイレントモード（足軽の戦国echo表示を無効化・API節約）"
             echo "                      未指定時はshoutモード（タスク完了時に戦国風echo表示）"
+            echo "  -L, --local [MODEL] ローカルの陣（Ollama経由で全エージェントをローカルLLMで起動）"
+            echo "                      未指定時は qwen3.5。例: -L deepseek-r1:70b"
             echo "  -h, --help          このヘルプを表示"
             echo ""
             echo "例:"
@@ -187,6 +201,8 @@ while [[ $# -gt 0 ]]; do
             echo "  ./shutsujin_departure.sh -shell zsh   # zsh用プロンプトで起動"
             echo "  ./shutsujin_departure.sh --shogun-no-thinking  # 将軍のthinkingを無効化（中継特化）"
             echo "  ./shutsujin_departure.sh -S           # サイレントモード（echo表示なし）"
+            echo "  ./shutsujin_departure.sh -L           # ローカルの陣（全軍qwen3.5）"
+            echo "  ./shutsujin_departure.sh -L llama3.3  # ローカルの陣（全軍llama3.3）"
             echo ""
             echo "モデル構成:"
             echo "  将軍:      Opus（デフォルト。--shogun-no-thinkingで無効化）"
@@ -197,6 +213,7 @@ while [[ $# -gt 0 ]]; do
             echo "陣形:"
             echo "  平時の陣（デフォルト）: 足軽1-7=Sonnet, 軍師=Opus"
             echo "  決戦の陣（--kessen）:   全足軽=Opus, 軍師=Opus"
+            echo "  ローカルの陣（--local）: 全軍=Ollama（デフォルト: qwen3.5）"
             echo ""
             echo "表示モード:"
             echo "  shout（デフォルト）:  タスク完了時に戦国風echo表示"
@@ -224,6 +241,76 @@ if [ -n "$SHELL_OVERRIDE" ]; then
     else
         echo "エラー: -shell オプションには bash または zsh を指定してください（指定値: $SHELL_OVERRIDE）"
         exit 1
+    fi
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ローカルの陣: --local 時に settings.yaml を一時的にオーバーライド
+# ───────────────────────────────────────────────────────────────────────────────
+# Ollama経由で全エージェントをローカルLLMで起動する。
+# settings.yaml の cli セクションを書き換え、終了時に復元する。
+# ═══════════════════════════════════════════════════════════════════════════════
+if [ "$LOCAL_MODE" = true ]; then
+    # Ollama の存在チェック
+    if ! command -v ollama &>/dev/null; then
+        echo -e "\033[1;31m【ERROR】\033[0m ollama が見つかりません。https://ollama.com/download からインストールしてください。"
+        exit 1
+    fi
+    # Claude Code CLI の存在チェック（ollama モードは claude CLI 経由）
+    if ! command -v claude &>/dev/null; then
+        echo -e "\033[1;31m【ERROR】\033[0m claude コマンドが見つかりません（ollama モードに必要）。"
+        exit 1
+    fi
+
+    # settings.yaml バックアップ → オーバーライド
+    SETTINGS_BACKUP="${CLI_ADAPTER_SETTINGS}.bak.$$"
+    cp "$CLI_ADAPTER_SETTINGS" "$SETTINGS_BACKUP"
+
+    # 復元用トラップ（正常終了・異常終了どちらでも復元）
+    trap 'if [ -f "$SETTINGS_BACKUP" ]; then cp "$SETTINGS_BACKUP" "$CLI_ADAPTER_SETTINGS"; rm -f "$SETTINGS_BACKUP"; fi' EXIT
+
+    "$SCRIPT_DIR/.venv/bin/python3" -c "
+import yaml, sys
+settings_path = '${CLI_ADAPTER_SETTINGS}'
+model = '${LOCAL_MODEL}'
+with open(settings_path) as f:
+    cfg = yaml.safe_load(f) or {}
+cfg.setdefault('cli', {})
+cfg['cli']['default'] = 'ollama'
+agents = cfg['cli'].setdefault('agents', {})
+# 全エージェントを ollama + 指定モデルに設定
+for agent_id in ['shogun', 'karo', 'gunshi'] + [f'ashigaru{i}' for i in range(1, 8)]:
+    if isinstance(agents.get(agent_id), dict):
+        agents[agent_id]['type'] = 'ollama'
+        agents[agent_id]['model'] = model
+    else:
+        agents[agent_id] = {'type': 'ollama', 'model': model}
+with open(settings_path, 'w') as f:
+    yaml.safe_dump(cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+" 2>/dev/null
+
+    log_info "🏠 ローカルの陣: 全軍を Ollama (${LOCAL_MODEL}) で起動"
+
+    # Ollama サーバー稼働チェック
+    if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+        log_info "⚠️  Ollama サーバーが起動していません。起動を試みます..."
+        ollama serve &>/dev/null &
+        sleep 2
+        if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+            echo -e "\033[1;31m【ERROR】\033[0m Ollama サーバーの起動に失敗しました。手動で 'ollama serve' を実行してください。"
+            exit 1
+        fi
+        log_success "  └─ Ollama サーバー起動完了"
+    fi
+
+    # モデルの存在チェック（未ダウンロードなら pull）
+    if ! ollama list 2>/dev/null | grep -q "${LOCAL_MODEL}"; then
+        log_info "📥 モデル ${LOCAL_MODEL} をダウンロード中（初回のみ）..."
+        ollama pull "${LOCAL_MODEL}" || {
+            echo -e "\033[1;31m【ERROR】\033[0m モデル ${LOCAL_MODEL} のダウンロードに失敗しました。"
+            exit 1
+        }
+        log_success "  └─ モデルダウンロード完了"
     fi
 fi
 
@@ -775,6 +862,8 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
 
     if [ "$KESSEN_MODE" = true ]; then
         log_success "✅ 決戦の陣で出陣！全軍Opus！"
+    elif [ "$LOCAL_MODE" = true ]; then
+        log_success "✅ ローカルの陣で出陣！全軍 Ollama (${LOCAL_MODEL})！"
     else
         log_success "✅ 平時の陣で出陣（家老=Sonnet, 足軽=Sonnet, 軍師=Opus）"
     fi

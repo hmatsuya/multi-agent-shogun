@@ -3,11 +3,11 @@
 # Multi-CLI統合設計書 (reports/design_multi_cli_support.md) §2.2 準拠
 #
 # 提供関数:
-#   get_cli_type(agent_id)                  → "claude" | "codex" | "copilot" | "kimi" | "kiro"
+#   get_cli_type(agent_id)                  → "claude" | "codex" | "copilot" | "kimi" | "kiro" | "ollama"
 #   build_cli_command(agent_id)             → 完全なコマンド文字列
 #   get_instruction_file(agent_id [,cli_type]) → 指示書パス
 #   validate_cli_availability(cli_type)     → 0=OK, 1=NG
-#   get_agent_model(agent_id)               → "opus" | "sonnet" | "haiku" | "k2.5" | "auto"
+#   get_agent_model(agent_id)               → "opus" | "sonnet" | "haiku" | "k2.5" | "auto" | "qwen3.5" etc.
 #   get_startup_prompt(agent_id)            → 初期プロンプト文字列 or ""
 
 # プロジェクトルートを基準にsettings.yamlのパスを解決
@@ -16,7 +16,7 @@ CLI_ADAPTER_PROJECT_ROOT="$(cd "${CLI_ADAPTER_DIR}/.." && pwd)"
 CLI_ADAPTER_SETTINGS="${CLI_ADAPTER_SETTINGS:-${CLI_ADAPTER_PROJECT_ROOT}/config/settings.yaml}"
 
 # 許可されたCLI種別
-CLI_ADAPTER_ALLOWED_CLIS="claude codex copilot kimi kiro"
+CLI_ADAPTER_ALLOWED_CLIS="claude codex copilot kimi kiro ollama"
 
 # --- 内部ヘルパー ---
 
@@ -87,18 +87,18 @@ try:
         print('claude'); sys.exit(0)
     agents = cli.get('agents', {})
     if not isinstance(agents, dict):
-        print(cli.get('default', 'claude') if cli.get('default', 'claude') in ('claude','codex','copilot','kimi','kiro') else 'claude')
+        print(cli.get('default', 'claude') if cli.get('default', 'claude') in ('claude','codex','copilot','kimi','kiro','ollama') else 'claude')
         sys.exit(0)
     agent_cfg = agents.get('${agent_id}')
     if isinstance(agent_cfg, dict):
         t = agent_cfg.get('type', '')
-        if t in ('claude', 'codex', 'copilot', 'kimi', 'kiro'):
+        if t in ('claude', 'codex', 'copilot', 'kimi', 'kiro', 'ollama'):
             print(t); sys.exit(0)
     elif isinstance(agent_cfg, str):
-        if agent_cfg in ('claude', 'codex', 'copilot', 'kimi', 'kiro'):
+        if agent_cfg in ('claude', 'codex', 'copilot', 'kimi', 'kiro', 'ollama'):
             print(agent_cfg); sys.exit(0)
     default = cli.get('default', 'claude')
-    if default in ('claude', 'codex', 'copilot', 'kimi', 'kiro'):
+    if default in ('claude', 'codex', 'copilot', 'kimi', 'kiro', 'ollama'):
         print(default)
     else:
         print('claude', file=sys.stderr)
@@ -171,6 +171,15 @@ build_cli_command() {
             local cmd="kiro-cli chat --trust-all-tools --agent shogun-system"
             echo "$cmd"
             ;;
+        ollama)
+            # Ollama uses Claude Code CLI with Anthropic-compatible API pointed at local Ollama
+            local cmd="ANTHROPIC_AUTH_TOKEN=ollama ANTHROPIC_BASE_URL=http://localhost:11434 ANTHROPIC_API_KEY='' claude"
+            if [[ -n "$model" ]]; then
+                cmd="$cmd --model $model"
+            fi
+            cmd="$cmd --dangerously-skip-permissions"
+            echo "$cmd"
+            ;;
         *)
             echo "claude --dangerously-skip-permissions"
             ;;
@@ -201,6 +210,7 @@ get_instruction_file() {
         copilot) echo ".github/copilot-instructions-${role}.md" ;;
         kimi)    echo "instructions/generated/kimi-${role}.md" ;;
         kiro)    echo "instructions/generated/kiro-${role}.md" ;;
+        ollama)  echo "instructions/${role}.md" ;;
         *)       echo "instructions/${role}.md" ;;
     esac
 }
@@ -240,6 +250,16 @@ validate_cli_availability() {
                 echo "[ERROR] Kiro CLI not found. Install with: curl -fsSL https://cli.kiro.dev/install | bash" >&2
                 return 1
             fi
+            ;;
+        ollama)
+            command -v ollama &>/dev/null || {
+                echo "[ERROR] Ollama not found. Install from https://ollama.com/download" >&2
+                return 1
+            }
+            command -v claude &>/dev/null || {
+                echo "[ERROR] Claude Code CLI not found (required for ollama mode). Install from https://claude.ai/download" >&2
+                return 1
+            }
             ;;
         *)
             echo "[ERROR] Unknown CLI type: '$cli_type'. Allowed: $CLI_ADAPTER_ALLOWED_CLIS" >&2
@@ -294,6 +314,10 @@ get_agent_model() {
                 *)              echo "auto" ;;
             esac
             ;;
+        ollama)
+            # Ollama用デフォルトモデル（ローカルLLM）
+            echo "qwen3.5"
+            ;;
         *)
             # Claude Code/Codex/Copilot用デフォルトモデル
             case "$agent_id" in
@@ -331,6 +355,10 @@ get_model_display_name() {
         *haiku*)                short="Haiku" ;;
         *k2.5*|*kimi*)          short="Kimi" ;;
         *auto*)                 short="Kiro" ;;
+        *qwen*)                 short="Qwen" ;;
+        *llama*)                short="Llama" ;;
+        *gemma*)                short="Gemma" ;;
+        *deepseek*)             short="DeepSeek" ;;
         *)
             # CLI種別から推測
             case "$cli_type" in
@@ -338,6 +366,7 @@ get_model_display_name() {
                 copilot) short="Copilot" ;;
                 kimi)    short="Kimi" ;;
                 kiro)    short="Kiro" ;;
+                ollama)  short="Local" ;;
                 *)       short="$model" ;;
             esac
             ;;
@@ -717,6 +746,7 @@ can_model_switch() {
         copilot) echo "none" ;;
         kimi)    echo "none" ;;
         kiro)    echo "full" ;;
+        ollama)  echo "none" ;;
         *)       echo "none" ;;
     esac
 }
