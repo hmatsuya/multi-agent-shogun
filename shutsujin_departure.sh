@@ -721,7 +721,7 @@ log_success "  └─ 家老・足軽・軍師の陣、構築完了"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# STEP 6: Claude Code 起動（-s / --setup-only のときはスキップ）
+# STEP 6: CLI 起動（-s / --setup-only のときはスキップ）
 # ═══════════════════════════════════════════════════════════════════════════════
 if [ "$SETUP_ONLY" = false ]; then
     # CLI の存在チェック（Multi-CLI対応）
@@ -743,7 +743,7 @@ if [ "$SETUP_ONLY" = false ]; then
     rm -f /tmp/shogun_idle_*
     echo "idle flags cleared"
 
-    log_war "👑 全軍に Claude Code を召喚中..."
+    log_war "👑 全軍に CLI を召喚中..."
 
     # 将軍: CLI Adapter経由でコマンド構築
     _shogun_cli_type="claude"
@@ -774,13 +774,21 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
     # 少し待機（安定のため）
     sleep 1
 
-    # 家老（pane 0）: CLI Adapter経由でコマンド構築（デフォルト: Sonnet）
+    # 家老（pane 0）: CLI Adapter経由でコマンド構築（デフォルト: Sonnet、決戦時: Opus）
     p=$((PANE_BASE + 0))
     _karo_cli_type="claude"
     _karo_cmd="claude --model sonnet --effort max --dangerously-skip-permissions"
     if [ "$CLI_ADAPTER_LOADED" = true ]; then
         _karo_cli_type=$(get_cli_type "karo")
-        _karo_cmd=$(build_cli_command "karo")
+        if [ "$KESSEN_MODE" = true ] && [ "$_karo_cli_type" = "claude" ]; then
+            _karo_cmd="claude --model opus --effort max --dangerously-skip-permissions"
+        elif [ "$KESSEN_MODE" = true ]; then
+            # Non-Claude CLI: build command then override model to opus equivalent
+            _karo_cmd=$(build_cli_command "karo")
+            _karo_cmd=$(echo "$_karo_cmd" | sed 's/--model [^ ]*/--model claude-opus-4.6/')
+        else
+            _karo_cmd=$(build_cli_command "karo")
+        fi
     fi
     # Codex等の初期プロンプト付加（サジェストUI停止問題対策）
     _startup_prompt=$(get_startup_prompt "karo" 2>/dev/null)
@@ -791,11 +799,14 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
     tmux send-keys -t "multiagent:agents.${p}" "$_karo_cmd"
     tmux send-keys -t "multiagent:agents.${p}" Enter
     _karo_display=$(get_model_display_name "karo" 2>/dev/null || echo "Sonnet")
+    if [ "$KESSEN_MODE" = true ]; then
+        _karo_display="Opus"
+    fi
     tmux set-option -p -t "multiagent:agents.${p}" @model_name "$_karo_display" 2>/dev/null || true
-    log_info "  └─ 家老（${_karo_display}）、召喚完了"
+    log_info "  └─ 家老（${_karo_cli_type} / ${_karo_display}）、召喚完了"
 
     if [ "$KESSEN_MODE" = true ]; then
-        # 決戦の陣: CLI Adapter経由（claudeはOpus強制）
+        # 決戦の陣: 全足軽をOpusで起動
         for i in $(seq 1 "$_ASHIGARU_COUNT"); do
             p=$((PANE_BASE + i))
             _ashi_cli_type="claude"
@@ -805,7 +816,9 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
                 if [ "$_ashi_cli_type" = "claude" ]; then
                     _ashi_cmd="claude --model opus --effort max --dangerously-skip-permissions"
                 else
+                    # Non-Claude CLI: build command then override model to opus equivalent
                     _ashi_cmd=$(build_cli_command "ashigaru${i}")
+                    _ashi_cmd=$(echo "$_ashi_cmd" | sed 's/--model [^ ]*/--model claude-opus-4.6/')
                 fi
             fi
             # Codex等の初期プロンプト付加（サジェストUI停止問題対策）
@@ -817,7 +830,7 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
             tmux send-keys -t "multiagent:agents.${p}" "$_ashi_cmd"
             tmux send-keys -t "multiagent:agents.${p}" Enter
         done
-        log_info "  └─ 足軽1-${_ASHIGARU_COUNT}（決戦の陣）、召喚完了"
+        log_info "  └─ 足軽1-${_ASHIGARU_COUNT}（決戦の陣 / ${_ashi_cli_type}）、召喚完了"
     else
         # 平時の陣: CLI Adapter経由（デフォルト: 全足軽=Sonnet）
         for i in $(seq 1 "$_ASHIGARU_COUNT"); do
@@ -837,7 +850,7 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
             tmux send-keys -t "multiagent:agents.${p}" "$_ashi_cmd"
             tmux send-keys -t "multiagent:agents.${p}" Enter
         done
-        log_info "  └─ 足軽1-${_ASHIGARU_COUNT}（平時の陣）、召喚完了"
+        log_info "  └─ 足軽1-${_ASHIGARU_COUNT}（平時の陣 / ${_ashi_cli_type}）、召喚完了"
     fi
 
     # 軍師（pane _ASHIGARU_COUNT+1）: Opus Thinking — 戦略立案・設計判断専任
@@ -858,14 +871,20 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
     tmux send-keys -t "multiagent:agents.${p}" Enter
     _gunshi_display=$(get_model_display_name "gunshi" 2>/dev/null || echo "Opus+T")
     tmux set-option -p -t "multiagent:agents.${p}" @model_name "$_gunshi_display" 2>/dev/null || true
-    log_info "  └─ 軍師（${_gunshi_display}）、召喚完了"
+    log_info "  └─ 軍師（${_gunshi_cli_type} / ${_gunshi_display}）、召喚完了"
+
+    # 使用中のCLI種別を取得（サマリ表示用）
+    _summary_cli="$_default_cli"
+    if [ "$CLI_ADAPTER_LOADED" = true ]; then
+        _summary_cli=$(get_cli_type "shogun")
+    fi
 
     if [ "$KESSEN_MODE" = true ]; then
-        log_success "✅ 決戦の陣で出陣！全軍Opus！"
+        log_success "✅ 決戦の陣で出陣！全軍Opus！（CLI: ${_summary_cli}）"
     elif [ "$LOCAL_MODE" = true ]; then
         log_success "✅ ローカルの陣で出陣！全軍 Ollama (${LOCAL_MODEL})！"
     else
-        log_success "✅ 平時の陣で出陣（家老=Sonnet, 足軽=Sonnet, 軍師=Opus）"
+        log_success "✅ 平時の陣で出陣（家老=Sonnet, 足軽=Sonnet, 軍師=Opus / CLI: ${_summary_cli}）"
     fi
     echo ""
 
@@ -940,12 +959,14 @@ NINJA_EOF
     echo -e "                               \033[0;36m[ASCII Art: syntax-samurai/ryu - CC0 1.0 Public Domain]\033[0m"
     echo ""
 
-    echo "  Claude Code の起動を待機中（最大30秒）..."
+    echo "  CLI の起動を待機中（最大30秒）..."
 
     # 将軍の起動を確認（最大30秒待機）
+    # Claude Code: "bypass permissions", Kiro CLI: ">" prompt
     for i in {1..30}; do
-        if tmux capture-pane -t shogun:main -p | grep -q "bypass permissions"; then
-            echo "  └─ 将軍の Claude Code 起動確認完了（${i}秒）"
+        _pane_output=$(tmux capture-pane -t shogun:main -p 2>/dev/null || echo "")
+        if echo "$_pane_output" | grep -qE "bypass permissions|^> $|^\[shogun-system\]"; then
+            echo "  └─ 将軍の CLI 起動確認完了（${i}秒）"
             break
         fi
         sleep 1
@@ -1000,9 +1021,9 @@ NINJA_EOF
 
     log_success "  └─ $((_ASHIGARU_COUNT + 3))エージェント分のinbox_watcher起動完了（将軍+家老+足軽${_ASHIGARU_COUNT}+軍師）"
 
-    # STEP 6.7 は廃止 — CLAUDE.md Session Start (step 1: tmux agent_id) で各自が自律的に
+    # STEP 6.7 は廃止 — steering/CLAUDE.md Session Start (step 1: tmux agent_id) で各自が自律的に
     # 自分のinstructions/*.mdを読み込む。検証済み (2026-02-08)。
-    log_info "📜 指示書読み込みは各エージェントが自律実行（CLAUDE.md Session Start）"
+    log_info "📜 指示書読み込みは各エージェントが自律実行（Session Start）"
     echo ""
 fi
 
@@ -1118,19 +1139,17 @@ echo "  ╚═══════════════════════
 echo ""
 
 if [ "$SETUP_ONLY" = true ]; then
-    echo "  ⚠️  セットアップのみモード: Claude Codeは未起動です"
+    echo "  ⚠️  セットアップのみモード: CLIは未起動です"
     echo ""
-    echo "  手動でClaude Codeを起動するには:"
+    echo "  手動でCLIを起動するには:"
     echo "  ┌──────────────────────────────────────────────────────────┐"
-    echo "  │  # 将軍を召喚                                            │"
+    echo "  │  # 将軍を召喚（例: Kiro CLI）                            │"
+    echo "  │  tmux send-keys -t shogun:main \\                         │"
+    echo "  │    'kiro-cli chat --trust-all-tools --agent shogun-system' Enter │"
+    echo "  │                                                          │"
+    echo "  │  # または Claude Code:                                   │"
     echo "  │  tmux send-keys -t shogun:main \\                         │"
     echo "  │    'claude --dangerously-skip-permissions' Enter         │"
-    echo "  │                                                          │"
-    echo "  │  # 家老・足軽を一斉召喚                                  │"
-    echo "  │  for p in \$(seq $PANE_BASE $((PANE_BASE+8))); do                                 │"
-    echo "  │      tmux send-keys -t multiagent:agents.\$p \\            │"
-    echo "  │      'claude --dangerously-skip-permissions' Enter       │"
-    echo "  │  done                                                    │"
     echo "  └──────────────────────────────────────────────────────────┘"
     echo ""
 fi

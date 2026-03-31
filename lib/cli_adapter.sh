@@ -168,7 +168,18 @@ build_cli_command() {
             echo "$cmd"
             ;;
         kiro)
-            local cmd="kiro-cli chat --trust-all-tools --agent shogun-system"
+            # Determine role-specific agent config name
+            local kiro_agent="shogun-system"
+            case "$agent_id" in
+                shogun)    kiro_agent="shogun-system" ;;
+                karo)      kiro_agent="karo-system" ;;
+                gunshi)    kiro_agent="gunshi-system" ;;
+                ashigaru*) kiro_agent="ashigaru-system" ;;
+            esac
+            local cmd="kiro-cli chat --trust-all-tools --agent $kiro_agent"
+            if [[ -n "$model" ]]; then
+                cmd="$cmd --model $model"
+            fi
             echo "$cmd"
             ;;
         ollama)
@@ -306,11 +317,11 @@ get_agent_model() {
             esac
             ;;
         kiro)
-            # Kiro CLI用デフォルトモデル
+            # Kiro CLI用デフォルトモデル（実際のKiro CLI model ID）
             case "$agent_id" in
-                shogun|gunshi)  echo "claude-sonnet-4" ;;
-                karo)           echo "claude-sonnet-4" ;;
-                ashigaru*)      echo "claude-sonnet-4" ;;
+                shogun|gunshi)  echo "claude-opus-4.6" ;;
+                karo)           echo "claude-sonnet-4.6" ;;
+                ashigaru*)      echo "claude-sonnet-4.6" ;;
                 *)              echo "auto" ;;
             esac
             ;;
