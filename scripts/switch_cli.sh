@@ -49,7 +49,7 @@ usage() {
     echo "Usage: $0 <agent_id> [--type <cli_type>] [--model <model_name>]"
     echo ""
     echo "  agent_id   karo, ashigaru1-7, gunshi"
-    echo "  --type     claude | codex | copilot | kimi"
+    echo "  --type     claude | codex | copilot | kimi | kiro"
     echo "  --model    claude-sonnet-4-6 | claude-opus-4-6 | gpt-5.3-codex | etc."
     echo ""
     echo "If --type/--model omitted, uses current settings.yaml values."
@@ -229,7 +229,7 @@ send_exit() {
             sleep 0.3
             tmux send-keys -t "$pane" Enter 2>/dev/null || true
             ;;
-        copilot|kimi)
+        copilot|kimi|kiro)
             tmux send-keys -t "$pane" C-c 2>/dev/null || true
             sleep 0.5
             tmux send-keys -t "$pane" "/exit" 2>/dev/null || true

@@ -75,6 +75,10 @@ agent_is_busy_check() {
     if echo "$pane_tail" | grep -qE '^(❯|›)\s*$'; then
         return 1
     fi
+    # Kiro CLI idle prompt
+    if echo "$pane_tail" | grep -qE '^(>|❯)\s*$'; then
+        return 1
+    fi
 
     # ── Text-based busy markers (bottom 5 lines) ──
     # These catch non-Claude-Code CLIs and edge cases where status bar

@@ -71,6 +71,9 @@ EOFYAML
         kimi)
             cat "$PARTS_DIR/cli_specific/kimi_tools.md" >> "$output_path"
             ;;
+        kiro)
+            cat "$PARTS_DIR/cli_specific/kiro_tools.md" >> "$output_path"
+            ;;
     esac
 
     echo "  ✅ Created: $output_filename"
@@ -99,6 +102,12 @@ build_instruction_file "kimi" "shogun" "kimi-shogun.md"
 build_instruction_file "kimi" "karo" "kimi-karo.md"
 build_instruction_file "kimi" "ashigaru" "kimi-ashigaru.md"
 build_instruction_file "kimi" "gunshi" "kimi-gunshi.md"
+
+# Build Kiro CLI instruction files
+build_instruction_file "kiro" "shogun" "kiro-shogun.md"
+build_instruction_file "kiro" "karo" "kiro-karo.md"
+build_instruction_file "kiro" "ashigaru" "kiro-ashigaru.md"
+build_instruction_file "kiro" "gunshi" "kiro-gunshi.md"
 
 # ============================================================
 # AGENTS.md generation (Codex auto-load file)
@@ -234,10 +243,86 @@ EOFYAML
     echo "  ✅ Created: agents/default/agent.yaml"
 }
 
+# ============================================================
+# Kiro CLI auto-load files generation
+# ============================================================
+# Kiro CLIは .kiro/agents/*.json (カスタムエージェント) と
+# .kiro/steering/*.md (ステアリングファイル) を自動読み込みする。
+# CLAUDE.mdを正本とし、Claude固有部分をKiro固有に置換してステアリングファイルを生成。
+# さらにカスタムエージェントJSONを生成し、指示書ファイルを参照させる。
+generate_kiro_instructions() {
+    local kiro_steering_dir="$ROOT_DIR/.kiro/steering"
+    local kiro_agents_dir="$ROOT_DIR/.kiro/agents"
+    local steering_md_path="$kiro_steering_dir/shogun-system.md"
+    local agent_json_path="$kiro_agents_dir/shogun-system.json"
+    local claude_md="$ROOT_DIR/CLAUDE.md"
+
+    echo "Generating: .kiro/steering/shogun-system.md + .kiro/agents/shogun-system.json (Kiro auto-load)"
+
+    if [ ! -f "$claude_md" ]; then
+        echo "  ⚠️  CLAUDE.md not found. Skipping Kiro auto-load generation."
+        return 1
+    fi
+
+    mkdir -p "$kiro_steering_dir"
+    mkdir -p "$kiro_agents_dir"
+
+    # Generate steering file (CLAUDE.md → Kiro版)
+    # Normalize line endings to LF to keep tracked auto-load files stable across platforms.
+    sed \
+        -e 's|CLAUDE\.md|.kiro/steering/shogun-system.md|g' \
+        -e 's|CLAUDE\.local\.md|.kiro/steering/shogun-system.local.md|g' \
+        -e 's|instructions/shogun\.md|instructions/generated/kiro-shogun.md|g' \
+        -e 's|instructions/karo\.md|instructions/generated/kiro-karo.md|g' \
+        -e 's|instructions/ashigaru\.md|instructions/generated/kiro-ashigaru.md|g' \
+        -e 's|instructions/gunshi\.md|instructions/generated/kiro-gunshi.md|g' \
+        -e 's|~/.claude/|~/.kiro/|g' \
+        -e 's|\.claude\.json|.kiro/settings/cli.json|g' \
+        -e 's|\.mcp\.json|.kiro/settings/mcp.json|g' \
+        -e 's|Claude Code|Kiro CLI|g' \
+        "$claude_md" | tr -d '\r' > "$steering_md_path"
+
+    echo "  ✅ Created: .kiro/steering/shogun-system.md"
+
+    # Generate agent JSON (Kiro custom agent definition)
+    cat > "$agent_json_path" <<'EOFJSON'
+{
+  "name": "shogun-system",
+  "description": "Kiro CLI agent for multi-agent-shogun system. Sengoku military hierarchy agent.",
+  "prompt": "file://../../instructions/generated/kiro-shogun.md",
+  "tools": ["*"],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep",
+    "web_search",
+    "web_fetch",
+    "use_subagent",
+    "code"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-sonnet-4"
+}
+EOFJSON
+
+    echo "  ✅ Created: .kiro/agents/shogun-system.json"
+}
+
 # Generate CLI auto-load files
 generate_agents_md
 generate_copilot_instructions
 generate_kimi_instructions
+generate_kiro_instructions
 
 echo ""
 echo "=== Build Complete ==="
@@ -251,3 +336,5 @@ echo "CLI auto-load files:"
 [ -f "$ROOT_DIR/.github/copilot-instructions.md" ] && ls -lh "$ROOT_DIR/.github/copilot-instructions.md"
 [ -f "$ROOT_DIR/agents/default/system.md" ] && ls -lh "$ROOT_DIR/agents/default/system.md"
 [ -f "$ROOT_DIR/agents/default/agent.yaml" ] && ls -lh "$ROOT_DIR/agents/default/agent.yaml"
+[ -f "$ROOT_DIR/.kiro/steering/shogun-system.md" ] && ls -lh "$ROOT_DIR/.kiro/steering/shogun-system.md"
+[ -f "$ROOT_DIR/.kiro/agents/shogun-system.json" ] && ls -lh "$ROOT_DIR/.kiro/agents/shogun-system.json"

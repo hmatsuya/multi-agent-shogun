@@ -230,7 +230,7 @@ should_throttle_nudge() {
 
 is_valid_cli_type() {
     case "${1:-}" in
-        claude|codex|copilot|kimi) return 0 ;;
+        claude|codex|copilot|kimi|kiro) return 0 ;;
         *) return 1 ;;
     esac
 }
@@ -602,7 +602,7 @@ send_codex_startup_prompt() {
 # Called when task_assigned is detected in unread messages.
 # Sends the appropriate "new conversation" command per CLI type to clear
 # stale context from the previous task.
-# CLI mapping: claude→/clear, codex→/new, copilot→/clear, kimi→/clear
+# CLI mapping: claude→/clear, codex→/new, copilot→/clear, kimi→/clear, kiro→/clear
 send_context_reset() {
     local effective_cli
     effective_cli=$(get_effective_cli_type)
@@ -622,6 +622,7 @@ send_context_reset() {
         claude)   reset_cmd="/clear" ;;
         copilot)  reset_cmd="/clear" ;;
         kimi)     reset_cmd="/clear" ;;
+        kiro)     reset_cmd="/clear" ;;
         *)        reset_cmd="/new" ;;  # safe default (codex-safe)
     esac
 

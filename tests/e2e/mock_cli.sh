@@ -35,6 +35,7 @@ source "$MOCK_SCRIPT_DIR/mock_behaviors/common.sh"
 case "$MOCK_CLI_TYPE" in
     claude) source "$MOCK_SCRIPT_DIR/mock_behaviors/claude_behavior.sh" ;;
     codex)  source "$MOCK_SCRIPT_DIR/mock_behaviors/codex_behavior.sh" ;;
+    kiro)   source "$MOCK_SCRIPT_DIR/mock_behaviors/kiro_behavior.sh" ;;
 esac
 
 # ─── State ───
@@ -50,6 +51,7 @@ echo "[mock_cli] Starting as $MOCK_AGENT_ID (type=$MOCK_CLI_TYPE, delay=${MOCK_P
 case "$MOCK_CLI_TYPE" in
     claude) claude_startup_banner ;;
     codex)  codex_startup_banner ;;
+    kiro)   kiro_startup_banner ;;
     *)      echo "Mock CLI ($MOCK_CLI_TYPE)" ;;
 esac
 

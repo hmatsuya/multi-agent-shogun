@@ -152,6 +152,7 @@ show_prompt() {
     case "$cli_type" in
         claude) echo -e "\n\$ " ;;
         codex)  echo -e "\n? for shortcuts                100% context left\n\$ " ;;
+        kiro)   echo -e "\n> " ;;
         *)      echo -e "\n\$ " ;;
     esac
 }
@@ -171,6 +172,7 @@ show_busy() {
     case "$cli_type" in
         claude) echo "Working on task (${seconds}s • esc to interrupt)" ;;
         codex)  echo "Thinking about approach (${seconds}s • esc to interrupt)" ;;
+        kiro)   echo "Reading file: task.yaml (${seconds}s)" ;;
         *)      echo "Processing... (${seconds}s)" ;;
     esac
 }

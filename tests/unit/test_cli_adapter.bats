@@ -123,6 +123,24 @@ YAML
 cli:
   default: kimi
 YAML
+
+    # kiro CLI settings
+    cat > "${TEST_TMP}/settings_kiro.yaml" << 'YAML'
+cli:
+  default: claude
+  agents:
+    ashigaru5:
+      type: kiro
+      model: claude-sonnet-4
+    ashigaru6:
+      type: kiro
+YAML
+
+    # kiro default settings
+    cat > "${TEST_TMP}/settings_kiro_default.yaml" << 'YAML'
+cli:
+  default: kiro
+YAML
 }
 
 teardown() {
@@ -206,6 +224,24 @@ load_adapter_with() {
     load_adapter_with "${TEST_TMP}/settings_kimi_default.yaml"
     result=$(get_cli_type "ashigaru1")
     [ "$result" = "kimi" ]
+}
+
+@test "get_cli_type: kiro設定 ashigaru5 → kiro" {
+    load_adapter_with "${TEST_TMP}/settings_kiro.yaml"
+    result=$(get_cli_type "ashigaru5")
+    [ "$result" = "kiro" ]
+}
+
+@test "get_cli_type: kiro設定 ashigaru6 → kiro (モデル指定なし)" {
+    load_adapter_with "${TEST_TMP}/settings_kiro.yaml"
+    result=$(get_cli_type "ashigaru6")
+    [ "$result" = "kiro" ]
+}
+
+@test "get_cli_type: kiroデフォルト設定 → kiro" {
+    load_adapter_with "${TEST_TMP}/settings_kiro_default.yaml"
+    result=$(get_cli_type "ashigaru1")
+    [ "$result" = "kiro" ]
 }
 
 @test "get_cli_type: 未定義agent → default継承" {
@@ -300,6 +336,12 @@ load_adapter_with() {
     [ "$result" = "kimi --yolo --model k2.5" ]
 }
 
+@test "build_cli_command: kiro → kiro-cli chat --trust-all-tools --agent shogun-system" {
+    load_adapter_with "${TEST_TMP}/settings_kiro.yaml"
+    result=$(build_cli_command "ashigaru5")
+    [ "$result" = "kiro-cli chat --trust-all-tools --agent shogun-system" ]
+}
+
 @test "build_cli_command: cliセクションなし → claude フォールバック" {
     load_adapter_with "${TEST_TMP}/settings_none.yaml"
     result=$(build_cli_command "ashigaru1")
@@ -358,6 +400,18 @@ load_adapter_with() {
     [ "$result" = "instructions/generated/kimi-shogun.md" ]
 }
 
+@test "get_instruction_file: ashigaru5 + kiro → instructions/generated/kiro-ashigaru.md" {
+    load_adapter_with "${TEST_TMP}/settings_kiro.yaml"
+    result=$(get_instruction_file "ashigaru5")
+    [ "$result" = "instructions/generated/kiro-ashigaru.md" ]
+}
+
+@test "get_instruction_file: shogun + kiro → instructions/generated/kiro-shogun.md" {
+    load_adapter_with "${TEST_TMP}/settings_kiro_default.yaml"
+    result=$(get_instruction_file "shogun")
+    [ "$result" = "instructions/generated/kiro-shogun.md" ]
+}
+
 @test "get_instruction_file: cli_type引数で明示指定 (codex)" {
     load_adapter_with "${TEST_TMP}/settings_none.yaml"
     result=$(get_instruction_file "shogun" "codex")
@@ -388,6 +442,10 @@ load_adapter_with() {
     [ "$(get_instruction_file shogun kimi)" = "instructions/generated/kimi-shogun.md" ]
     [ "$(get_instruction_file karo kimi)" = "instructions/generated/kimi-karo.md" ]
     [ "$(get_instruction_file ashigaru7 kimi)" = "instructions/generated/kimi-ashigaru.md" ]
+    # kiro
+    [ "$(get_instruction_file shogun kiro)" = "instructions/generated/kiro-shogun.md" ]
+    [ "$(get_instruction_file karo kiro)" = "instructions/generated/kiro-karo.md" ]
+    [ "$(get_instruction_file ashigaru1 kiro)" = "instructions/generated/kiro-ashigaru.md" ]
 }
 
 @test "get_instruction_file: 不明なagent_id → 空文字 + return 1" {
@@ -470,6 +528,22 @@ load_adapter_with() {
     PATH="/usr/bin:/bin" run validate_cli_availability "kimi"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Kimi CLI not found"* ]]
+}
+
+@test "validate_cli_availability: kiro-cli mock (PATH操作)" {
+    load_adapter_with "${TEST_TMP}/settings_none.yaml"
+    mkdir -p "${TEST_TMP}/bin"
+    echo '#!/bin/bash' > "${TEST_TMP}/bin/kiro-cli"
+    chmod +x "${TEST_TMP}/bin/kiro-cli"
+    PATH="${TEST_TMP}/bin:$PATH" run validate_cli_availability "kiro"
+    [ "$status" -eq 0 ]
+}
+
+@test "validate_cli_availability: kiro未インストール → 1 + エラーメッセージ" {
+    load_adapter_with "${TEST_TMP}/settings_none.yaml"
+    PATH="/usr/bin:/bin" run validate_cli_availability "kiro"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Kiro CLI not found"* ]]
 }
 
 # =============================================================================
