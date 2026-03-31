@@ -531,6 +531,13 @@ send_cli_command() {
                 return 0
             fi
             ;;
+        kiro)
+            # Kiro CLI: /clear prompts for confirmation → use /chat new instead (no confirmation)
+            if [[ "$cmd" == "/clear" ]]; then
+                actual_cmd="/chat new"
+                echo "[$(date)] [SEND-KEYS] Kiro /clear→/chat new: starting new conversation for $AGENT_ID" >&2
+            fi
+            ;;
         # claude: commands pass through as-is
     esac
 
@@ -542,16 +549,16 @@ send_cli_command() {
         sleep 0.5
     fi
     timeout 5 tmux send-keys -t "$PANE_TARGET" "$actual_cmd" 2>/dev/null || true
-    # /clear needs longer gap before Enter — CLI prompt may not be ready at 0.3s
-    if [[ "$actual_cmd" == "/clear" || "$actual_cmd" == "/new" ]]; then
+    # /clear and /chat new need longer gap before Enter — CLI prompt may not be ready at 0.3s
+    if [[ "$actual_cmd" == "/clear" || "$actual_cmd" == "/new" || "$actual_cmd" == "/chat new" ]]; then
         sleep 1.0
     else
         sleep 0.3
     fi
     timeout 5 tmux send-keys -t "$PANE_TARGET" Enter 2>/dev/null || true
 
-    # /clear needs extra wait time before follow-up
-    if [[ "$actual_cmd" == "/clear" ]]; then
+    # /clear and /chat new need extra wait time before follow-up
+    if [[ "$actual_cmd" == "/clear" || "$actual_cmd" == "/chat new" ]]; then
         LAST_CLEAR_TS=$(date +%s)
         sleep 3
     else
@@ -602,7 +609,7 @@ send_codex_startup_prompt() {
 # Called when task_assigned is detected in unread messages.
 # Sends the appropriate "new conversation" command per CLI type to clear
 # stale context from the previous task.
-# CLI mapping: claude→/clear, codex→/new, copilot→/clear, kimi→/clear, kiro→/clear
+# CLI mapping: claude→/clear, codex→/new, copilot→/clear, kimi→/clear, kiro→/chat new
 send_context_reset() {
     local effective_cli
     effective_cli=$(get_effective_cli_type)
@@ -622,7 +629,7 @@ send_context_reset() {
         claude)   reset_cmd="/clear" ;;
         copilot)  reset_cmd="/clear" ;;
         kimi)     reset_cmd="/clear" ;;
-        kiro)     reset_cmd="/clear" ;;
+        kiro)     reset_cmd="/chat new" ;;  # /clear prompts for confirmation; /chat new skips it
         *)        reset_cmd="/new" ;;  # safe default (codex-safe)
     esac
 
@@ -652,8 +659,8 @@ send_context_reset() {
     # Longer gap for /clear — CLI prompt rendering needs time
     sleep 1.0
     timeout 5 tmux send-keys -t "$PANE_TARGET" Enter 2>/dev/null || true
-    # Mark /clear timestamp so agent_is_busy() treats it as busy during processing
-    if [[ "$reset_cmd" == "/clear" ]]; then
+    # Mark /clear or /chat new timestamp so agent_is_busy() treats it as busy during processing
+    if [[ "$reset_cmd" == "/clear" || "$reset_cmd" == "/chat new" ]]; then
         LAST_CLEAR_TS=$(date +%s)
     fi
 
