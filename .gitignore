@@ -60,6 +60,7 @@
 
 # Setup and deployment scripts
 !shutsujin_departure.sh
+!tesshu_retreat.sh
 !first_setup.sh
 !setup.sh
 !install.bat
