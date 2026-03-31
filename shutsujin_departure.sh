@@ -803,6 +803,7 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
         _karo_display="Opus"
     fi
     tmux set-option -p -t "multiagent:agents.${p}" @model_name "$_karo_display" 2>/dev/null || true
+    tmux select-pane -t "multiagent:agents.${p}" -T "$_karo_display"
     log_info "  └─ 家老（${_karo_cli_type} / ${_karo_display}）、召喚完了"
 
     if [ "$KESSEN_MODE" = true ]; then
@@ -827,6 +828,8 @@ with open(f,'w') as fh: yaml.safe_dump(d, fh, default_flow_style=False, allow_un
                 _ashi_cmd="$_ashi_cmd \"$_startup_prompt\""
             fi
             tmux set-option -p -t "multiagent:agents.${p}" @agent_cli "$_ashi_cli_type"
+            tmux set-option -p -t "multiagent:agents.${p}" @model_name "Opus" 2>/dev/null || true
+            tmux select-pane -t "multiagent:agents.${p}" -T "Opus"
             tmux send-keys -t "multiagent:agents.${p}" "$_ashi_cmd"
             tmux send-keys -t "multiagent:agents.${p}" Enter
         done
