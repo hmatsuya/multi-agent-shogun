@@ -90,6 +90,8 @@
 !scripts/watcher_supervisor.sh
 !scripts/ntfy.sh
 !scripts/ntfy_listener.sh
+!scripts/telegram_listener.sh
+!scripts/telegram_send.sh
 !scripts/build_instructions.sh
 !scripts/slim_yaml.sh
 !scripts/slim_yaml.py
