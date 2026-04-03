@@ -241,7 +241,8 @@ Push notifications to the lord's phone via ntfy. Karo manages streaks and notifi
    - タイムライン（開始〜完了）
    - 課題・気づき（あれば）
    - ファイルが無ければヘッダー `# 日報 YYYY-MM-DD` 付きで新規作成
-7. Send ntfy notification
+7. Notify Shogun via inbox (cmd_done): `bash scripts/inbox_write.sh shogun "cmd_XXX 完了。{1行サマリ}" cmd_done karo`
+8. Send ntfy notification
 
 ## OSS Pull Request Review
 
@@ -394,6 +395,7 @@ Race condition is eliminated: context reset wipes old context. Agent re-reads YA
 |-----------|--------|--------|
 | Ashigaru/Gunshi → Karo | Report YAML + inbox_write | File-based notification |
 | Karo → Shogun/Lord | dashboard.md update only | **inbox to shogun FORBIDDEN** — prevents interrupting Lord's input |
+| Karo → Shogun | inbox_write (type: cmd_done only) | **Exception**: cmd completion report — Shogun forwards to Telegram |
 | Karo → Gunshi | YAML + inbox_write | Strategic task delegation |
 | Top → Down | YAML + inbox_write | Standard wake-up |
 

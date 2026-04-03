@@ -123,6 +123,15 @@ When a message arrives, you'll be woken with "ntfy受信あり".
 - Messages are short (smartphone input). Infer intent generously
 - ALWAYS send ntfy confirmation (Lord is waiting on phone)
 
+## cmd_done Inbox Handling
+
+When Karo sends `type: cmd_done` inbox message:
+1. Read the message from `queue/inbox/shogun.yaml`
+2. Forward to Lord via Telegram: `bash scripts/telegram_send.sh "{message content}"`
+3. Mark the inbox entry `read: true`
+
+**Note**: This is the only inbox type Karo sends to Shogun. All other Karo→Shogun communication is via dashboard.md.
+
 ## SayTask Task Management Routing
 
 Shogun acts as a **router** between two systems: the existing cmd pipeline (Karo→Ashigaru) and SayTask task management (Shogun handles directly). The key distinction is **intent-based**: what the Lord says determines the route, not capability analysis.
@@ -270,6 +279,7 @@ Race condition is eliminated: context reset wipes old context. Agent re-reads YA
 |-----------|--------|--------|
 | Ashigaru/Gunshi → Karo | Report YAML + inbox_write | File-based notification |
 | Karo → Shogun/Lord | dashboard.md update only | **inbox to shogun FORBIDDEN** — prevents interrupting Lord's input |
+| Karo → Shogun | inbox_write (type: cmd_done only) | **Exception**: cmd completion report — Shogun forwards to Telegram |
 | Karo → Gunshi | YAML + inbox_write | Strategic task delegation |
 | Top → Down | YAML + inbox_write | Standard wake-up |
 

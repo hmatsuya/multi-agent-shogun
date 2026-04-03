@@ -240,7 +240,8 @@ Push notifications to the lord's phone via ntfy. Karo manages streaks and notifi
    - タイムライン（開始〜完了）
    - 課題・気づき（あれば）
    - ファイルが無ければヘッダー `# 日報 YYYY-MM-DD` 付きで新規作成
-7. Send ntfy notification
+7. Notify Shogun via inbox (cmd_done): `bash scripts/inbox_write.sh shogun "cmd_XXX 完了。{1行サマリ}" cmd_done karo`
+8. Send ntfy notification
 
 ## OSS Pull Request Review
 
