@@ -27,6 +27,8 @@
 !.kiro/
 !.kiro/agents/
 !.kiro/agents/*.json
+!.kiro/steering/
+!.kiro/steering/*.md
 
 # Instructions (core OSS)
 !instructions/
