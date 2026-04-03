@@ -10,6 +10,9 @@
 
 set -e
 
+# Ensure ~/.local/bin is in PATH (kiro-cli install location)
+export PATH="$HOME/.local/bin:$PATH"
+
 # スクリプトのディレクトリを取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
