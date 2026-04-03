@@ -12,17 +12,18 @@ log() { echo "[shogun_autostart] $*"; }
 if tmux has-session -t shogun 2>/dev/null; then
     log "shogun session already exists — skip"
 else
-    tmux new-session -d -s shogun -n main -c "$SCRIPT_DIR"
+    tmux new-session -d -s shogun -n main -x 220 -y 50 -c "$SCRIPT_DIR"
     tmux set-option -p -t "shogun:main" @agent_id "shogun"
-    tmux send-keys -t shogun:main "cd \"$SCRIPT_DIR\" && $KIRO chat --trust-all-tools" Enter
-    log "shogun session created, kiro-cli started"
+    tmux send-keys -t shogun:main \
+        "cd \"$SCRIPT_DIR\" && $KIRO chat --trust-all-tools --agent shogun-system" Enter
+    log "shogun session created, kiro-cli (shogun-system) started"
 fi
 
 # ── 2. multiagent session ───────────────────────────────────────────────────
 if tmux has-session -t multiagent 2>/dev/null; then
     log "multiagent session already exists — skip"
 else
-    tmux new-session -d -s multiagent -n agents -c "$SCRIPT_DIR"
+    tmux new-session -d -s multiagent -n agents -x 220 -y 50 -c "$SCRIPT_DIR"
 
     # Create 8 additional panes (total 9: pane 0-8)
     for i in $(seq 1 8); do
@@ -30,13 +31,16 @@ else
     done
     tmux select-layout -t multiagent:agents tiled
 
-    # Assign agent IDs and start kiro-cli
-    AGENTS=(karo ashigaru1 ashigaru2 ashigaru3 ashigaru4 ashigaru5 ashigaru6 ashigaru7 gunshi)
-    for i in "${!AGENTS[@]}"; do
-        agent="${AGENTS[$i]}"
+    # Agent definitions: id and --agent name
+    AGENT_IDS=(karo ashigaru1 ashigaru2 ashigaru3 ashigaru4 ashigaru5 ashigaru6 ashigaru7 gunshi)
+    AGENT_OPTS=(karo-system ashigaru-system ashigaru-system ashigaru-system ashigaru-system ashigaru-system ashigaru-system ashigaru-system gunshi-system)
+
+    for i in "${!AGENT_IDS[@]}"; do
+        agent="${AGENT_IDS[$i]}"
+        opt="${AGENT_OPTS[$i]}"
         tmux set-option -p -t "multiagent:agents.$i" @agent_id "$agent"
         tmux send-keys -t "multiagent:agents.$i" \
-            "cd \"$SCRIPT_DIR\" && $KIRO chat --trust-all-tools" Enter
+            "cd \"$SCRIPT_DIR\" && $KIRO chat --trust-all-tools --agent $opt" Enter
     done
     log "multiagent session created (9 panes: karo + ashigaru1-7 + gunshi)"
 fi
