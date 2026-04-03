@@ -72,7 +72,14 @@ _cli_adapter_is_valid_cli() {
 get_cli_type() {
     local agent_id="$1"
     if [[ -z "$agent_id" ]]; then
-        echo "claude"
+        # Read cli.default from settings.yaml, fallback to "claude"
+        local default_cli
+        default_cli=$(_cli_adapter_read_yaml "cli.default" "claude")
+        if _cli_adapter_is_valid_cli "$default_cli"; then
+            echo "$default_cli"
+        else
+            echo "claude"
+        fi
         return 0
     fi
 
