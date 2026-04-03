@@ -92,6 +92,7 @@
 !scripts/ntfy_listener.sh
 !scripts/telegram_listener.sh
 !scripts/telegram_send.sh
+!scripts/shogun_autostart.sh
 !scripts/build_instructions.sh
 !scripts/slim_yaml.sh
 !scripts/slim_yaml.py
