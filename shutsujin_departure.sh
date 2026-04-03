@@ -1101,6 +1101,20 @@ if [ -n "$NTFY_TOPIC" ]; then
 else
     log_info "📱 ntfy未設定のためリスナーはスキップ"
 fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STEP 6.9: Telegram入力リスナー起動
+# ═══════════════════════════════════════════════════════════════════════════════
+TG_TOKEN=$(grep 'telegram_bot_token:' ./config/settings.yaml 2>/dev/null | awk '{print $2}' | tr -d '"')
+if [ -n "$TG_TOKEN" ]; then
+    pkill -f "telegram_listener.sh" 2>/dev/null || true
+    [ ! -f ./queue/ntfy_inbox.yaml ] && echo "inbox:" > ./queue/ntfy_inbox.yaml
+    nohup bash "$SCRIPT_DIR/scripts/telegram_listener.sh" &>/dev/null &
+    disown
+    log_info "📱 Telegram入力リスナー起動"
+else
+    log_info "📱 Telegram未設定のためリスナーはスキップ"
+fi
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
