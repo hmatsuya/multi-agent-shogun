@@ -79,6 +79,10 @@ pkill -f "fswatch.*queue/inbox" 2>/dev/null || true
 pkill -f "ntfy_listener.sh" 2>/dev/null || true
 log_info "  └─ ntfy_listener 停止"
 
+# telegram_listener
+pkill -f "telegram_listener.sh" 2>/dev/null || true
+log_info "  └─ telegram_listener 停止"
+
 # watcher_supervisor
 pkill -f "watcher_supervisor.sh" 2>/dev/null || true
 log_info "  └─ watcher_supervisor 停止"
