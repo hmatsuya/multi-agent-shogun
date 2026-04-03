@@ -23,11 +23,12 @@ fi
 if tmux has-session -t multiagent 2>/dev/null; then
     log "multiagent session already exists — skip"
 else
-    tmux new-session -d -s multiagent -n agents -x 220 -y 50 -c "$SCRIPT_DIR"
+    tmux new-session -d -s multiagent -n agents -x 220 -y 100 -c "$SCRIPT_DIR"
 
     # Create 8 additional panes (total 9: pane 0-8)
     for i in $(seq 1 8); do
         tmux split-window -t multiagent:agents -c "$SCRIPT_DIR"
+        tmux select-layout -t multiagent:agents tiled
     done
     tmux select-layout -t multiagent:agents tiled
 
