@@ -24,6 +24,9 @@
 # Claude Code settings (spinner verbs only, no secrets)
 !.claude/
 !.claude/settings.json
+!.kiro/
+!.kiro/agents/
+!.kiro/agents/*.json
 
 # Instructions (core OSS)
 !instructions/

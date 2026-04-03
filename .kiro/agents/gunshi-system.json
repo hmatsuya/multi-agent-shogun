@@ -1,0 +1,27 @@
+{
+  "name": "gunshi-system",
+  "description": "Kiro CLI agent for Gunshi (strategist) role in multi-agent-shogun system.",
+  "prompt": "file://../../instructions/generated/kiro-gunshi.md",
+  "tools": ["*"],
+  "allowedTools": [
+    "read",
+    "write",
+    "shell",
+    "glob",
+    "grep",
+    "web_search",
+    "web_fetch",
+    "use_subagent",
+    "code"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    "file://.kiro/steering/**/*.md"
+  ],
+  "includeMcpJson": true,
+  "model": "claude-opus-4.6"
+}
