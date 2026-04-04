@@ -205,3 +205,16 @@ bats tests/*.bats tests/unit/*.bats
 bash scripts/build_instructions.sh
 git diff --exit-code instructions/generated/
 ```
+
+# Project Steering Auto-Load Rule (All Agents)
+
+When starting work on any project, check for a `.kiro/steering/` directory in the project's root and read all `.md` files found there before proceeding.
+
+```bash
+# Check and read project steering files
+ls {project_root}/.kiro/steering/*.md 2>/dev/null
+```
+
+- If steering files exist → read them all before any work
+- If not found → proceed without (no error)
+- Project root is determined from `context/{project}.md`, task `target_path:`, or `projects/{id}.yaml`

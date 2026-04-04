@@ -539,6 +539,19 @@ bash scripts/build_instructions.sh
 git diff --exit-code instructions/generated/
 ```
 
+# Project Steering Auto-Load Rule (All Agents)
+
+When starting work on any project, check for a `.kiro/steering/` directory in the project's root and read all `.md` files found there before proceeding.
+
+```bash
+# Check and read project steering files
+ls {project_root}/.kiro/steering/*.md 2>/dev/null
+```
+
+- If steering files exist → read them all before any work
+- If not found → proceed without (no error)
+- Project root is determined from `context/{project}.md`, task `target_path:`, or `projects/{id}.yaml`
+
 # Forbidden Actions
 
 ## Common Forbidden Actions (All Agents)
@@ -655,7 +668,7 @@ Kiro CLI uses a tool-level trust model:
 | `--trust-all-tools` | Session | Allow all tools without confirmation |
 | `--trust-tools <list>` | Session | Trust only specified tools (comma-separated) |
 | `allowedTools` in agent config | Agent | Tools that never prompt for permission |
-| `toolsSettings` | Agent | Per-tool path/command restrictions |
+| `toolsSettings` | Agent | Per tool path/command restrictions |
 | `/tools trust <name>` | Session | Trust a tool interactively |
 
 ### Default Permissions
